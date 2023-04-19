@@ -12,6 +12,7 @@ processes = []
 [build]
 
 [env]
+  NODE_ENV = "production"
 
 [experimental]
   auto_rollback = true
