@@ -18,7 +18,8 @@ export class Speechmatics {
       "transcription_config": {
         "operating_point": "enhanced", // enhanced standard
         "language": "en",
-        "enable_entities": true
+        "enable_entities": true,
+        "diarization": "speaker",
       }
     }))
     const { data } = await axios.post<{ id: string }>('https://asr.api.speechmatics.com/v2/jobs/', formData, {

@@ -9,7 +9,7 @@ const { telegramToken, speechmaticsApiKey, maxAudioDuration } = config
 const bot = new Bot(telegramToken);
 const speechmatics = new Speechmatics(speechmaticsApiKey)
 
-const introductionMessage = `Hello! I'm a Telegram bot.`;
+const introductionMessage = `Hello! I'm a Harmony Voice Memo bot. Please send me audio file or voice memo to translate.`;
 
 const replyWithIntro = (ctx: any) =>
   ctx.reply(introductionMessage);
