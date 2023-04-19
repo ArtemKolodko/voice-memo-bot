@@ -74,10 +74,12 @@ if (process.env.NODE_ENV === "production") {
   app.use(express.json());
   app.use(webhookCallback(bot, "express"));
 
-  const PORT = process.env.PORT || 8080;
+  const PORT = process.env.PORT || 3000;
   app.listen(PORT, () => {
     console.log(`Bot listening on port ${PORT}`);
   });
+  bot.start();
 } else {
+  console.log('Bot started (development)')
   bot.start();
 }

@@ -12,7 +12,6 @@ processes = []
 [build]
 
 [env]
-  NODE_ENV = "production"
 
 [experimental]
   auto_rollback = true
@@ -21,7 +20,7 @@ processes = []
   autostart = true
   autostop = false
   http_checks = []
-  internal_port = 3001
+  internal_port = 3000
   processes = ["app"]
   protocol = "tcp"
   script_checks = []

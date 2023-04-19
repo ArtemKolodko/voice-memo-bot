@@ -1,3 +1,6 @@
+import * as dotenv from 'dotenv'
+dotenv.config()
+
 export default {
   telegramToken: process.env.TELEGRAM_TOKEN || "",
   speechmaticsApiKey: process.env.SPEECHMATICS_API_KEY || "",
