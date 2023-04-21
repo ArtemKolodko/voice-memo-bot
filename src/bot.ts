@@ -15,7 +15,7 @@ const replyWithIntro = (ctx: any) =>
   ctx.reply(introductionMessage);
 
 const downloadFile = async (filePath: string) => {
-  const url = `https://api.telegram.org/file/bot${telegramToken}/${filePath}`
+  const url = getDataUrl(filePath)
   const { data } = await axios.get(url)
   return data
 }
@@ -26,6 +26,7 @@ const getDataUrl = (filePath: string) => {
 
 const onMessage = async (ctx: any) => {
   const { id, username, first_name } = ctx.update.message.chat
+
   const audio = ctx.update.message.voice || ctx.update.message.audio
   if(audio) {
     const { file_id, duration } = audio
@@ -57,8 +58,8 @@ const onMessage = async (ctx: any) => {
           await ctx.reply('Translation failed');
         }
       } catch (e) {
-        console.log('Translation failed', (e as Error).message)
-        await ctx.reply('Translation failed');
+        console.log('Translation failed', e)
+        await ctx.reply(`Translation failed: "${(e as Error).message || 'Unknown error'}"`);
       }
     }
   } else {

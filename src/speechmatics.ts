@@ -44,7 +44,7 @@ export class Speechmatics {
   }
 
   private async pollJobResult (jobId: string) {
-    for(let i = 0; i < 100; i++) {
+    for(let i = 0; i < 600; i++) {
       try {
         const data = await this.getJobResult(jobId)
         return data
