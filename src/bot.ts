@@ -84,6 +84,8 @@ const listenEvents = async () => {
           } else {
             console.log('Translation ready, length:', translation.length)
             const file = new Buffer(translation)
+            // @ts-ignore
+            file.name = 'translation.txt' // hack from gramjs typings
             await client.sendFile(chatId, { file })
           }
         } catch (e: any) {
