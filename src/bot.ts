@@ -63,13 +63,13 @@ const listenEvents = async () => {
     }
 
     if(errorMessage) {
-      await postMessage(chatId, errorMessage)
+      // await postMessage(chatId, errorMessage)
       return
     }
 
     if(chatId && media instanceof Api.MessageMediaDocument && media && media.document) {
       console.log('Received new media:', media)
-      await client.sendMessage(chatId, { message: 'Translation started' })
+      await client.sendMessage(chatId, { message: 'Translation started', replyTo: event.message })
       const buffer = await client.downloadMedia(media);
 
       if(buffer) {
@@ -78,15 +78,15 @@ const listenEvents = async () => {
           const filePath = writeTempFile(buffer, documentId)
           const translation = await speechmatics.getTranslation(filePath)
 
-          if(translation.length < 1024) {
-            console.log('Translation:', translation)
-            await client.sendMessage(chatId, { message: translation })
+          if(translation.length < 512) {
+            console.log('Translation ready:', translation)
+            await client.sendMessage(chatId, { message: translation, replyTo: event.message })
           } else {
             console.log('Translation ready, length:', translation.length)
             const file = new Buffer(translation)
             // @ts-ignore
             file.name = 'translation.txt' // hack from gramjs typings
-            await client.sendFile(chatId, { file })
+            await client.sendFile(chatId, { file, replyTo: event.message })
           }
         } catch (e: any) {
           if(e.response && e.response.data) {
