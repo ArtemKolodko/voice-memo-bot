@@ -6,6 +6,7 @@ import {NewMessage, NewMessageEvent} from "telegram/events";
 import fs from "fs";
 import {Api} from "telegram";
 import path from "path";
+import moment from "moment";
 
 const { speechmaticsApiKey } = config
 const TempDirectory = './temp/'
@@ -48,8 +49,23 @@ const listenEvents = async () => {
     }
   }
 
+  async function getUserById(id: string) {
+    const { users } = await client.invoke(
+      new Api.users.GetFullUser({
+        id,
+      })
+    );
+    return users.length ? users[0] : null
+  }
+
   async function onEvent(event: NewMessageEvent) {
+    console.log('event', event)
     const { media, chatId } = event.message;
+
+    // @ts-ignore
+    const sender = await getUserById(BigInt(event.message.peerId.userId).toString())
+    console.log('sender', sender)
+    const timestamp = event.message.date
 
     let errorMessage  = ''
     if(media && (media instanceof Api.MessageMediaDocument) && media.document) {
@@ -69,14 +85,18 @@ const listenEvents = async () => {
 
     if(chatId && media instanceof Api.MessageMediaDocument && media && media.document) {
       console.log('Received new media:', media)
-      await client.sendMessage(chatId, { message: 'Translation started', replyTo: event.message })
+      // await client.sendMessage(chatId, { message: 'Translation started', replyTo: event.message })
       const buffer = await client.downloadMedia(media);
 
       if(buffer) {
         const documentId = media.document.id.toString()
         try {
           const filePath = writeTempFile(buffer, documentId)
-          const translation = await speechmatics.getTranslation(filePath)
+          let translation = await speechmatics.getTranslation(filePath)
+
+          translation = translation
+            .replaceAll('SPEAKER: S', 'SPEAKER ')
+            .replaceAll('\n', '\n\n')
 
           if(translation.length < 512) {
             console.log('Translation ready:', translation)
@@ -84,9 +104,15 @@ const listenEvents = async () => {
           } else {
             console.log('Translation ready, length:', translation.length)
             const file = new Buffer(translation)
+
+            const messageDate = moment(event.message.date * 1000).utcOffset(-7).format('MM-DD h:mm a')
             // @ts-ignore
-            file.name = 'translation.txt' // hack from gramjs typings
-            await client.sendFile(chatId, { file, replyTo: event.message })
+            const fileName = `From @${sender ? sender.username : 'unknown'} ${messageDate}.txt`
+            console.log('fileName', fileName)
+            // hack from gramjs type docs
+            // @ts-ignore
+            file.name = fileName
+            await client.sendFile(chatId, { file, replyTo: event.message, caption: translation.slice(0, 512) })
           }
         } catch (e: any) {
           if(e.response && e.response.data) {
