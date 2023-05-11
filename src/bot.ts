@@ -59,12 +59,12 @@ const listenEvents = async () => {
   }
 
   async function onEvent(event: NewMessageEvent) {
-    console.log('event', event)
+    // console.log('event', event)
     const { media, chatId } = event.message;
 
     // @ts-ignore
     const sender = await getUserById(BigInt(event.message.peerId.userId).toString())
-    console.log('sender', sender)
+    // console.log('sender', sender)
     const timestamp = event.message.date
 
     let errorMessage  = ''
