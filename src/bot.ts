@@ -7,6 +7,7 @@ import fs from "fs";
 import {Api} from "telegram";
 import path from "path";
 import moment from "moment";
+import UserEmpty = Api.UserEmpty;
 
 const { speechmaticsApiKey } = config
 const TempDirectory = './temp/'
@@ -49,7 +50,7 @@ const listenEvents = async () => {
     }
   }
 
-  async function getUserById(id: string) {
+  async function getUserById(id: string): Promise<Api.User | UserEmpty | null> {
     const { users } = await client.invoke(
       new Api.users.GetFullUser({
         id,
@@ -59,13 +60,28 @@ const listenEvents = async () => {
   }
 
   async function onEvent(event: NewMessageEvent) {
-    // console.log('event', event)
+    console.log('event', event)
     const { media, chatId } = event.message;
 
-    // @ts-ignore
-    const sender = await getUserById(BigInt(event.message.peerId.userId).toString())
-    // console.log('sender', sender)
-    const timestamp = event.message.date
+    let senderUsername = ''
+    try {
+      let userId = ''
+      if(event.message.peerId instanceof Api.PeerUser) {
+        userId = event.message.peerId.userId.toString()
+      } else if(event.message.fromId instanceof Api.PeerUser) {
+        userId = event.message.fromId.userId.toString()
+      }
+      console.log('userId:', userId)
+      if(userId) {
+        const sender = await getUserById(userId)
+        if(sender instanceof Api.User && sender.username) {
+          senderUsername = sender.username
+          console.log('senderUsername', senderUsername)
+        }
+      }
+    } catch (e) {
+      console.log("Can't get sender username:", e)
+    }
 
     let errorMessage  = ''
     if(media && (media instanceof Api.MessageMediaDocument) && media.document) {
@@ -107,7 +123,7 @@ const listenEvents = async () => {
 
             const messageDate = moment(event.message.date * 1000).utcOffset(-7).format('MM-DD h:mm a')
             // @ts-ignore
-            const fileName = `From @${sender ? sender.username : 'unknown'} ${messageDate}.txt`
+            const fileName = `From @${senderUsername} ${messageDate}.txt`
             console.log('fileName', fileName)
             // hack from gramjs type docs
             // @ts-ignore
