@@ -8,16 +8,19 @@ import {Api} from "telegram";
 import path from "path";
 import moment from "moment";
 import UserEmpty = Api.UserEmpty;
+import {Kagi} from "./kagi";
 
-const { speechmaticsApiKey } = config
-const TempDirectory = './temp/'
+const { speechmaticsApiKey, kagiApiKey, servicePublicUrl } = config
+
+const filesDirectoryName = 'public'
+const filesDirectory = './' + filesDirectoryName
+const audioExtension = 'ogg'
 
 const speechmatics = new Speechmatics(speechmaticsApiKey)
-
-const introductionMessage = `Hello! I'm a Harmony Voice Memo bot. Please send me audio file or voice memo to translate.`;
+const kagi = new Kagi(kagiApiKey)
 
 const writeTempFile = (buffer: string | Buffer, filename: string) => {
-  const filePath = TempDirectory + filename
+  const filePath = `${filesDirectory}/${filename}.${audioExtension}`
   fs.writeFileSync(filePath, buffer)
   return filePath
 }
@@ -29,16 +32,27 @@ const deleteTempFile = (filePath: string) => {
 }
 
 const clearTempDirectory = () => {
-  const directory = TempDirectory
-  fs.readdir(directory, (err, files) => {
+  fs.readdir(filesDirectory, (err, files) => {
     if (err) throw err;
 
     for (const file of files) {
-      fs.unlink(path.join(directory, file), (err) => {
-        if (err) throw err;
-      });
+      if(!['audio.ogg', 'test.txt'].includes(file)) {
+        fs.unlink(path.join(filesDirectory, file), (err) => {
+          if (err) throw err;
+        });
+      }
     }
   });
+}
+
+const getAudioSummarization = async (audioUrl: string) => {
+  try {
+    const summarization = await kagi.getSummarization(audioUrl)
+    return summarization
+  } catch (e) {
+    console.log(`Error: cannot get audio "${audioUrl}" summarization:`, e)
+  }
+  return ''
 }
 
 const listenEvents = async () => {
@@ -60,7 +74,7 @@ const listenEvents = async () => {
   }
 
   async function onEvent(event: NewMessageEvent) {
-    console.log('event', event)
+    // console.log('event', event)
     const { media, chatId } = event.message;
 
     let senderUsername = ''
@@ -100,7 +114,7 @@ const listenEvents = async () => {
     }
 
     if(chatId && media instanceof Api.MessageMediaDocument && media && media.document) {
-      console.log('Received new media:', media)
+      // console.log('Received new media:', media)
       // await client.sendMessage(chatId, { message: 'Translation started', replyTo: event.message })
       const buffer = await client.downloadMedia(media);
 
@@ -108,15 +122,25 @@ const listenEvents = async () => {
         const documentId = media.document.id.toString()
         try {
           const filePath = writeTempFile(buffer, documentId)
-          let translation = await speechmatics.getTranslation(filePath)
+          const externalFileUrl = `${servicePublicUrl}/${documentId}.${audioExtension}`
+          console.log('External file url: ', externalFileUrl)
+          let [translation, summarization] = await Promise.all([
+            speechmatics.getTranslation(filePath),
+            getAudioSummarization(externalFileUrl)
+          ])
+          console.log('Summarization:', summarization)
 
           translation = translation
+            // @ts-ignore
             .replaceAll('SPEAKER: S', 'SPEAKER ')
             .replaceAll('\n', '\n\n')
 
           if(translation.length < 512) {
             console.log('Translation ready:', translation)
-            await client.sendMessage(chatId, { message: translation, replyTo: event.message })
+            await client.sendMessage(chatId, {
+              message: translation,
+              replyTo: event.message
+            })
           } else {
             console.log('Translation ready, length:', translation.length)
             const file = new Buffer(translation)
@@ -128,7 +152,11 @@ const listenEvents = async () => {
             // hack from gramjs type docs
             // @ts-ignore
             file.name = fileName
-            await client.sendFile(chatId, { file, replyTo: event.message, caption: translation.slice(0, 512) })
+            await client.sendFile(chatId, {
+              file,
+              replyTo: event.message,
+              caption: summarization || translation.slice(0, 512)
+            })
           }
         } catch (e: any) {
           if(e.response && e.response.data) {
@@ -141,7 +169,7 @@ const listenEvents = async () => {
             console.log('Error:', e)
           }
         } finally {
-          deleteTempFile(TempDirectory + documentId)
+          deleteTempFile(`${filesDirectory}/${documentId}.${audioExtension}`)
         }
       } else {
         console.log('Buffer is empty')
@@ -156,7 +184,7 @@ if (process.env.NODE_ENV === "production") {
   const app = express();
   app.use(express.json());
 
-  app.use(express.static('./public'))
+  app.use(express.static(filesDirectory))
 
   const PORT = process.env.PORT || 3000;
   app.listen(PORT, () => {

@@ -1,7 +1,6 @@
 import axios from 'axios'
 import FormData from 'form-data';
 import * as fs from "fs";
-const { Readable } = require('stream');
 
 export class Speechmatics {
   private readonly apiKey: string
