@@ -80,19 +80,16 @@ const listenEvents = async () => {
     let senderUsername = ''
     try {
       let userId = ''
-      if(event.message.peerId instanceof Api.PeerUser) {
-        userId = event.message.peerId.userId.toString()
-      } else if(event.message.fromId instanceof Api.PeerUser) {
+      if(event.message.fromId instanceof Api.PeerUser) {
         userId = event.message.fromId.userId.toString()
       }
-      console.log('userId:', userId)
       if(userId) {
         const sender = await getUserById(userId)
         if(sender instanceof Api.User && sender.username) {
           senderUsername = sender.username
-          console.log('senderUsername', senderUsername)
         }
       }
+      console.log('Message from userId:', userId, 'username: ', senderUsername)
     } catch (e) {
       console.log("Can't get sender username:", e)
     }
@@ -147,15 +144,15 @@ const listenEvents = async () => {
 
             const messageDate = moment(event.message.date * 1000).utcOffset(-7).format('MM-DD h:mm a')
             // @ts-ignore
-            const fileName = `From @${senderUsername} ${messageDate}.txt`
-            console.log('fileName', fileName)
+            const fileName = `From ${senderUsername ? '@'+senderUsername : ''} ${messageDate}.txt`
+            console.log('Filename:', fileName)
             // hack from gramjs type docs
             // @ts-ignore
             file.name = fileName
             await client.sendFile(chatId, {
               file,
               replyTo: event.message,
-              caption: summarization || translation.slice(0, 512)
+              caption: summarization.slice(0, 1024) || translation.slice(0, 512)
             })
           }
         } catch (e: any) {

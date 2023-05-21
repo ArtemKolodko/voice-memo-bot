@@ -10,6 +10,7 @@ interface SummarizationResponse {
     output: string
   }
   tokens: number
+  error?: { code: number, msg: string }[]
 }
 
 export class Kagi {
@@ -26,6 +27,6 @@ export class Kagi {
         'Authorization': `Bot ${this.apiKey}`
       }
     })
-    return data.data.output
+    return data.data.output || ''
   }
 }
