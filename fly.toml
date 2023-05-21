@@ -12,6 +12,7 @@ processes = []
 [build]
 
 [env]
+  SERVICE_PUBLIC_URL = "https://voice-memo-bot.fly.dev"
 
 [experimental]
   auto_rollback = true
