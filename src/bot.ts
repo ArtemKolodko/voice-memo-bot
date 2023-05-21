@@ -82,6 +82,8 @@ const listenEvents = async () => {
       let userId = ''
       if(event.message.fromId instanceof Api.PeerUser) {
         userId = event.message.fromId.userId.toString()
+      } else if(event.message.peerId instanceof Api.PeerUser) {
+        userId = event.message.peerId.userId.toString()
       }
       if(userId) {
         const sender = await getUserById(userId)
@@ -111,7 +113,6 @@ const listenEvents = async () => {
     }
 
     if(chatId && media instanceof Api.MessageMediaDocument && media && media.document) {
-      // console.log('Received new media:', media)
       // await client.sendMessage(chatId, { message: 'Translation started', replyTo: event.message })
       const buffer = await client.downloadMedia(media);
 
@@ -144,7 +145,7 @@ const listenEvents = async () => {
 
             const messageDate = moment(event.message.date * 1000).utcOffset(-7).format('MM-DD h:mm a')
             // @ts-ignore
-            const fileName = `From ${senderUsername ? '@'+senderUsername : ''} ${messageDate}.txt`
+            const fileName = `${senderUsername ? 'From  @'+senderUsername : ''} ${messageDate}.txt`
             console.log('Filename:', fileName)
             // hack from gramjs type docs
             // @ts-ignore
