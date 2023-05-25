@@ -47,8 +47,29 @@ const clearTempDirectory = () => {
 
 const getAudioSummarization = async (audioUrl: string) => {
   try {
-    const summarization = await kagi.getSummarization(audioUrl)
-    return summarization
+    let text = await kagi.getSummarization(audioUrl)
+    console.log('Raw summary from Kagi:', text)
+    if(text.includes('\n')) {
+      const [,,textContent] = text.split('\n')
+      text = textContent
+    }
+    text = text.replace('The speakers', 'We')
+    const splitText = text.split('.').map(part => part.trim())
+    let resultText = ''
+    for(let i = 0; i < splitText.length; i++) {
+      if(i % 2 !== 0) {
+        continue
+      }
+      const sentence1 = splitText[i]
+      const sentence2 = splitText[i + 1] || ''
+      const twoSentences = sentence1 + (sentence2 ? '. ' + sentence2 + '.' : '')
+      resultText +=  twoSentences
+      if(i < splitText.length - 3) {
+        resultText += '\n\n'
+      }
+    }
+    console.log('Result summary:', resultText)
+    return resultText
   } catch (e) {
     console.log(`Error: cannot get audio "${audioUrl}" summarization:`, e)
   }
