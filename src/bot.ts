@@ -8,16 +8,16 @@ import {Api} from "telegram";
 import path from "path";
 import moment from "moment";
 import UserEmpty = Api.UserEmpty;
-import {Kagi} from "./kagi";
+import {GPT4} from "./gpt4";
 
-const { speechmaticsApiKey, kagiApiKey, servicePublicUrl } = config
+const { speechmaticsApiKey, servicePublicUrl, gpt4ApiKey } = config
 
 const filesDirectoryName = 'public'
 const filesDirectory = './' + filesDirectoryName
 const audioExtension = 'ogg'
 
 const speechmatics = new Speechmatics(speechmaticsApiKey)
-const kagi = new Kagi(kagiApiKey)
+const gpt4 = new GPT4(gpt4ApiKey)
 
 const writeTempFile = (buffer: string | Buffer, filename: string) => {
   const filePath = `${filesDirectory}/${filename}.${audioExtension}`
@@ -45,33 +45,12 @@ const clearTempDirectory = () => {
   });
 }
 
-const getAudioSummarization = async (audioUrl: string) => {
+const getGPT4Summarization = async (text: string) => {
   try {
-    let text = await kagi.getSummarization(audioUrl)
-    console.log('Raw summary from Kagi:', text)
-    if(text.includes('\n')) {
-      const [,,textContent] = text.split('\n')
-      text = textContent
-    }
-    text = text.replace('The speakers', 'We')
-    const splitText = text.split('.').map(part => part.trim())
-    let resultText = ''
-    for(let i = 0; i < splitText.length; i++) {
-      if(i % 2 !== 0) {
-        continue
-      }
-      const sentence1 = splitText[i]
-      const sentence2 = splitText[i + 1] || ''
-      const twoSentences = sentence1 + (sentence2 ? '. ' + sentence2 + '.' : '')
-      resultText +=  twoSentences
-      if(i < splitText.length - 3) {
-        resultText += '\n\n'
-      }
-    }
-    console.log('Result summary:', resultText)
-    return resultText
+    const result = await gpt4.getSummarization(text)
+    return result
   } catch (e) {
-    console.log(`Error: cannot get audio "${audioUrl}" summarization:`, e)
+    console.log('GPT4 summarization error:', (e as Error).message)
   }
   return ''
 }
@@ -143,10 +122,8 @@ const listenEvents = async () => {
           const filePath = writeTempFile(buffer, documentId)
           const externalFileUrl = `${servicePublicUrl}/${documentId}.${audioExtension}`
           console.log('External file url: ', externalFileUrl)
-          let [translation, summarization] = await Promise.all([
-            speechmatics.getTranslation(filePath),
-            getAudioSummarization(externalFileUrl)
-          ])
+          let translation = await speechmatics.getTranslation(filePath)
+          const summarization = await getGPT4Summarization(translation)
           console.log('Summarization:', summarization)
 
           translation = translation
