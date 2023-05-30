@@ -9,8 +9,9 @@ import path from "path";
 import moment from "moment";
 import UserEmpty = Api.UserEmpty;
 import {GPT4} from "./gpt4";
+import {Kagi} from "./kagi";
 
-const { speechmaticsApiKey, servicePublicUrl, gpt4ApiKey } = config
+const { speechmaticsApiKey, servicePublicUrl, gpt4ApiKey, kagiApiKey } = config
 
 const filesDirectoryName = 'public'
 const filesDirectory = './' + filesDirectoryName
@@ -18,6 +19,7 @@ const audioExtension = 'ogg'
 
 const speechmatics = new Speechmatics(speechmaticsApiKey)
 const gpt4 = new GPT4(gpt4ApiKey)
+const kagi = new Kagi(kagiApiKey)
 
 const writeTempFile = (buffer: string | Buffer, filename: string) => {
   const filePath = `${filesDirectory}/${filename}.${audioExtension}`
@@ -45,10 +47,33 @@ const clearTempDirectory = () => {
   });
 }
 
-const getGPT4Summarization = async (text: string) => {
+const getTextSummarization = async (fullText: string) => {
   try {
-    const result = await gpt4.getSummarization(text)
-    return result
+    const text = fullText.length > 20000
+      ? await kagi.getSummarization(fullText)
+      : await gpt4.getSummarization(fullText)
+
+    const splitText = text
+      .replace('The speakers', 'We')
+      .replaceAll('Summary:', '')
+      .split('.')
+      .map(part => part.trim())
+      .filter(item => item)
+
+    let resultText = ''
+    for(let i = 0; i < splitText.length; i++) {
+      if(i % 2 !== 0) {
+        continue
+      }
+      const sentence1 = splitText[i]
+      const sentence2 = splitText[i + 1] || ''
+      const twoSentences = sentence1 + (sentence2 ? '. ' + sentence2 + '.' : '')
+      resultText +=  twoSentences
+      if(i < splitText.length - 1) {
+        resultText += '\n\n'
+      }
+    }
+    return resultText
   } catch (e) {
     console.log('GPT4 summarization error:', (e as Error).message)
   }
@@ -123,7 +148,7 @@ const listenEvents = async () => {
           const externalFileUrl = `${servicePublicUrl}/${documentId}.${audioExtension}`
           console.log('External file url: ', externalFileUrl)
           let translation = await speechmatics.getTranslation(filePath)
-          const summarization = await getGPT4Summarization(translation)
+          const summarization = await getTextSummarization(translation)
           console.log('Summarization:', summarization)
 
           translation = translation

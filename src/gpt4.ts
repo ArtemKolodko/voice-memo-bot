@@ -25,11 +25,14 @@ export class GPT4 {
   public async getSummarization (text: string) {
     const preparedText = text.replaceAll(/Speaker: S[0-9]\n/gi, '')
     const url = `https://api.openai.com/v1/completions`
+
+    let prompt = `Create a short 8-sentence summary from the following text: ${preparedText}`
+
     const { data } = await axios.post<GPT4SummarizationResponse>(url, {
       model: 'text-davinci-003',
-      prompt: `Create a short 8-sentence summary from the following text: ${preparedText}`,
+      prompt,
       temperature: 0.7,
-      max_tokens: 256,
+      max_tokens: 512,
       top_p: 1.0,
       frequency_penalty: 0.0,
       presence_penalty: 1,
