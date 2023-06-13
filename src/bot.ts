@@ -49,10 +49,10 @@ const getAudioSummarization = async (audioUrl: string) => {
   try {
     let text = await kagi.getSummarization(audioUrl)
     console.log('Raw summary from Kagi:', text)
-    if(text.includes('\n')) {
-      const [,,textContent] = text.split('\n')
-      text = textContent
-    }
+    // if(text.includes('\n')) {
+    //   const [,,textContent] = text.split('\n')
+    //   text = textContent
+    // }
     text = text.replace('The speakers', 'We')
     const splitText = text.split('.').map(part => part.trim())
     let resultText = ''
