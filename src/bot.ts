@@ -9,8 +9,15 @@ import path from "path";
 import moment from "moment";
 import UserEmpty = Api.UserEmpty;
 import {Kagi} from "./kagi";
+import {PaymentsService} from "./payment";
 
-const { speechmaticsApiKey, kagiApiKey, servicePublicUrl } = config
+const {
+  speechmaticsApiKey,
+  kagiApiKey,
+  servicePublicUrl,
+  paymentsServiceUrl,
+  paymentsServiceApiKey
+} = config
 
 const filesDirectoryName = 'public'
 const filesDirectory = './' + filesDirectoryName
@@ -18,6 +25,7 @@ const audioExtension = 'ogg'
 
 const speechmatics = new Speechmatics(speechmaticsApiKey)
 const kagi = new Kagi(kagiApiKey)
+const paymentsService = new PaymentsService(paymentsServiceUrl, paymentsServiceApiKey)
 
 const writeTempFile = (buffer: string | Buffer, filename: string) => {
   const filePath = `${filesDirectory}/${filename}.${audioExtension}`
@@ -49,10 +57,6 @@ const getAudioSummarization = async (audioUrl: string) => {
   try {
     let text = await kagi.getSummarization(audioUrl)
     console.log('Raw summary from Kagi:', text)
-    // if(text.includes('\n')) {
-    //   const [,,textContent] = text.split('\n')
-    //   text = textContent
-    // }
     text = text.replace('The speakers', 'We')
     const splitText = text.split('.').map(part => part.trim())
     let resultText = ''
@@ -94,25 +98,55 @@ const listenEvents = async () => {
     return users.length ? users[0] : null
   }
 
+  async function onBalanceRequest(event: NewMessageEvent) {
+    const { sender, senderId, chatId } = event.message;
+
+    if(!chatId) {
+      console.log('No chat id, return', event)
+      return
+    }
+
+    const userId = senderId ? senderId.toString() : ''
+    const userName = sender instanceof Api.User ? '@' + sender.username: ''
+    let userAddress = ''
+
+    try {
+      const user = await paymentsService.getUser(userId)
+      userAddress = user.userAddress
+    } catch (e) {
+      if((e as any).response.status === 404) {
+        const user = await paymentsService.createUser(userId)
+        userAddress = user.userAddress
+      }
+    }
+
+    try {
+      const { one, usd } = await paymentsService.getUserBalance(userId)
+      const amountOne = (+one / Math.pow(10, 18)).toFixed(4)
+      await client.sendMessage(chatId, {
+        message: `User ${userName} balance: ${usd} USD (${amountOne} ONE)\nRefill address (Harmony): ${userAddress}`,
+        replyTo: event.message
+      })
+    } catch (e) {
+      console.log('onBalanceRequest error', e)
+    }
+  }
+
   async function onEvent(event: NewMessageEvent) {
     // console.log('event', event)
-    const { media, chatId } = event.message;
+    const { media, chatId, message, fromId } = event.message;
+
+    if(message === 'balance') {
+      onBalanceRequest(event)
+      return
+    }
 
     let senderUsername = ''
     try {
-      let userId = ''
-      if(event.message.fromId instanceof Api.PeerUser) {
-        userId = event.message.fromId.userId.toString()
-      } else if(event.message.peerId instanceof Api.PeerUser) {
-        userId = event.message.peerId.userId.toString()
+      if(event.message.sender instanceof Api.User && event.message.sender.username) {
+        senderUsername = event.message.sender.username
       }
-      if(userId) {
-        const sender = await getUserById(userId)
-        if(sender instanceof Api.User && sender.username) {
-          senderUsername = sender.username
-        }
-      }
-      console.log('Message from userId:', userId, 'username: ', senderUsername)
+      console.log('Message from username:', senderUsername)
     } catch (e) {
       console.log("Can't get sender username:", e)
     }
