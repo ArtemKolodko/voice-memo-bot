@@ -53,6 +53,22 @@ const clearTempDirectory = () => {
   });
 }
 
+const getPriceEstimate = (media: Api.MessageMediaDocument) => {
+  let duration = 60 * 30
+  if(media.document instanceof Api.Document) {
+    // @ts-ignore
+    const durationAttr = media.document.attributes.find(attr => attr.duration)
+    if(durationAttr) {
+      if (durationAttr instanceof Api.DocumentAttributeAudio) {
+        duration = durationAttr.duration
+      }
+    }
+  }
+  const speechmaticsEstimateUSD = speechmatics.estimatePrice(duration)
+  const kagiEstimateUSD = kagi.estimatePrice(duration)
+  return (speechmaticsEstimateUSD + kagiEstimateUSD).toFixed(2)
+}
+
 const getAudioSummarization = async (audioUrl: string) => {
   try {
     let text = await kagi.getSummarization(audioUrl)
@@ -134,9 +150,10 @@ const listenEvents = async () => {
 
   async function onEvent(event: NewMessageEvent) {
     // console.log('event', event)
-    const { media, chatId, message, fromId } = event.message;
+    const { media, chatId, message, senderId } = event.message;
+    const userId = senderId ? senderId.toString() : ''
 
-    if(message === 'balance') {
+    if(['balance', 'b'].includes(message.toLowerCase())) {
       onBalanceRequest(event)
       return
     }
@@ -168,6 +185,35 @@ const listenEvents = async () => {
     }
 
     if(chatId && media instanceof Api.MessageMediaDocument && media && media.document) {
+      const priceEstimateUsd = getPriceEstimate(media)
+      let userBalanceUsd = '0'
+      try {
+        const { one, usd } = await paymentsService.getUserBalance(userId)
+        userBalanceUsd = usd
+      } catch (e: any) {
+        console.log('Cannot get user balance', e.message)
+        if(e.response && e.response.status === 404) {
+          await paymentsService.createUser(userId)
+        }
+      }
+
+      const balanceDelta = +userBalanceUsd - +priceEstimateUsd - 0.01
+      if(balanceDelta < 0) {
+        const user = await paymentsService.getUser(userId)
+        const deltaOneAmount = await paymentsService.convertUsdToOne(Math.abs(balanceDelta).toString())
+        const message = `Insufficient balance. Please send ${Math.ceil(deltaOneAmount / Math.pow(10, 18))} ONE to address ${user.userAddress} (network: Harmony).`
+        await client.sendMessage(chatId, { message, replyTo: event.message })
+        return
+      }
+
+      try {
+        const payment = await paymentsService.withdrawFunds(userId, priceEstimateUsd)
+        console.log('Payment:', payment)
+      } catch (e: any) {
+        console.log('Payment error:', e.message)
+        await client.sendMessage(chatId, { message: 'Failed to pay for the translation', replyTo: event.message })
+      }
+
       // await client.sendMessage(chatId, { message: 'Translation started', replyTo: event.message })
       const buffer = await client.downloadMedia(media);
 

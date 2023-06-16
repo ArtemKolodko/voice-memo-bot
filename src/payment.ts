@@ -39,4 +39,17 @@ export class PaymentsService {
     })
     return data
   }
+
+  public async withdrawFunds (userId: string, amountUsd: string) {
+    const { data } = await axios.post<PaymentsUser>(`${this.serviceUrl}/user/withdraw`, {
+      userId,
+      amountUsd
+    })
+    return data
+  }
+
+  public async convertUsdToOne (amount: string) {
+    const { data: oneRate } = await axios.get<string>(`${this.serviceUrl}/web3/tokenPrice/harmony`)
+    return (+amount * Math.pow(10, 18)) / +oneRate;
+  }
 }

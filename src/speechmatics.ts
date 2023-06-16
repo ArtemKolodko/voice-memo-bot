@@ -4,6 +4,7 @@ import * as fs from "fs";
 
 export class Speechmatics {
   private readonly apiKey: string
+  private readonly pricePerHour = 2 // USD
 
   constructor(apiKey: string) {
     this.apiKey = apiKey
@@ -77,5 +78,9 @@ export class Speechmatics {
     console.log(`Speechmatics: start job ${jobIb}, data url: ${dataUrl}`)
     const result = await this.pollJobResult(jobIb)
     return result
+  }
+
+  public estimatePrice (duration: number) {
+    return this.pricePerHour * duration / 60 / 60
   }
 }
