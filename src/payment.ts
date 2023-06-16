@@ -1,4 +1,7 @@
 import axios from 'axios'
+import config from './config'
+
+const { paymentsServiceApiKey } = config
 
 export interface UserBalance {
   one: string
@@ -24,26 +27,30 @@ export class PaymentsService {
   }
 
   public async getUser (userId: string) {
-    const { data } = await axios.get<PaymentsUser>(`${this.serviceUrl}/user/${userId}`)
+    const { data } = await axios.get<PaymentsUser>(`${this.serviceUrl}/users/id/${userId}`)
     return data
   }
 
   public async getUserBalance (userId: string) {
-    const { data } = await axios.get<UserBalance>(`${this.serviceUrl}/user/balance/${userId}`)
+    const { data } = await axios.get<UserBalance>(`${this.serviceUrl}/users/balance/${userId}`)
     return data
   }
 
   public async createUser (userId: string) {
-    const { data } = await axios.post<PaymentsUser>(`${this.serviceUrl}/user/create`, {
+    const { data } = await axios.post<PaymentsUser>(`${this.serviceUrl}/users/create`, {
       userId
     })
     return data
   }
 
   public async withdrawFunds (userId: string, amountUsd: string) {
-    const { data } = await axios.post<PaymentsUser>(`${this.serviceUrl}/user/withdraw`, {
+    const { data } = await axios.post<PaymentsUser>(`${this.serviceUrl}/users/pay`, {
       userId,
       amountUsd
+    }, {
+      headers: {
+        'x-api-key': paymentsServiceApiKey
+      }
     })
     return data
   }
