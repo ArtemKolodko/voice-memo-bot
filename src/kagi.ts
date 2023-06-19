@@ -15,6 +15,7 @@ interface SummarizationResponse {
 
 export class Kagi {
   private readonly apiKey: string
+  private readonly pricePerHour = 0.5 // roughly estimate
 
   constructor(apiKey: string) {
     this.apiKey = apiKey
@@ -28,5 +29,9 @@ export class Kagi {
       }
     })
     return data.data.output || ''
+  }
+
+  public estimatePrice(duration: number) {
+    return this.pricePerHour * duration / 60 / 60
   }
 }
