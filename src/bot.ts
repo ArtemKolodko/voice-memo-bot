@@ -99,22 +99,26 @@ const getAudioSummarization = async (audioUrl: string) => {
 const listenEvents = async () => {
   const client = await initTelegramClient()
 
-  const postMessage = (chatId: any, message: string) => {
-    if(chatId) {
-      return client.sendMessage(chatId, { message })
+  async function onHelpRequest(event: NewMessageEvent) {
+    const {sender, senderId, chatId} = event.message;
+    if(!chatId) {
+      console.log('No chat id, return', event)
+      return
     }
+
+    await client.sendMessage(chatId, {
+      message: `
+**Harmony voice memo bot**
+To start audio translation, send audio or voice recording to chat with the bot\n
+Commands
+**/help** - this menu
+**/balance** - get user balance and ONE address to refill
+`,
+      replyTo: event.message
+    })
   }
 
-  async function getUserById(id: string): Promise<Api.User | UserEmpty | null> {
-    const { users } = await client.invoke(
-      new Api.users.GetFullUser({
-        id,
-      })
-    );
-    return users.length ? users[0] : null
-  }
-
-  async function onBalanceRequest(event: NewMessageEvent) {
+    async function onBalanceRequest(event: NewMessageEvent) {
     const { sender, senderId, chatId } = event.message;
 
     if(!chatId) {
@@ -140,7 +144,8 @@ const listenEvents = async () => {
       const { one, usd } = await paymentsService.getUserBalance(userId)
       const amountOne = (+one / Math.pow(10, 18)).toFixed(4)
       await client.sendMessage(chatId, {
-        message: `User ${userName} balance: ${usd} USD (${amountOne} ONE)\nRefill address (Harmony): ${userAddress}`,
+        message: `${userName} balance: ${amountOne} ONE (${usd} USD)\nSend ONE to refill (Harmony): **${userAddress}**`,
+        parseMode : "markdown",
         replyTo: event.message
       })
     } catch (e) {
@@ -153,8 +158,13 @@ const listenEvents = async () => {
     const { media, chatId, message, senderId } = event.message;
     const userId = senderId ? senderId.toString() : ''
 
-    if(['balance', 'b'].includes(message.toLowerCase())) {
+    if(['/balance'].includes(message.toLowerCase())) {
       onBalanceRequest(event)
+      return
+    }
+
+    if(['/start', '/help'].includes(message.toLowerCase())) {
+      onHelpRequest(event)
       return
     }
 
@@ -187,13 +197,17 @@ const listenEvents = async () => {
     if(chatId && media instanceof Api.MessageMediaDocument && media && media.document) {
       const priceEstimateUsd = getPriceEstimate(media)
       let userBalanceUsd = '0'
+
       try {
         const { one, usd } = await paymentsService.getUserBalance(userId)
         userBalanceUsd = usd
       } catch (e: any) {
-        console.log('Cannot get user balance', e.message)
+        console.log('Cannot get user balance:', e.message)
         if(e.response && e.response.status === 404) {
           await paymentsService.createUser(userId)
+        } else {
+          await client.sendMessage(chatId, { message: 'Failed to get user balance', replyTo: event.message })
+          return
         }
       }
 
