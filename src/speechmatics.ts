@@ -4,7 +4,7 @@ import * as fs from "fs";
 
 export class Speechmatics {
   private readonly apiKey: string
-  private readonly pricePerHour = 2 // USD
+  private readonly pricePerHour = 1.04 // USD
 
   constructor(apiKey: string) {
     this.apiKey = apiKey
