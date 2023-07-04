@@ -10,4 +10,6 @@ export default {
   servicePublicUrl: process.env.SERVICE_PUBLIC_URL || '',
   paymentsServiceUrl: process.env.PAYMENTS_SERVICE_URL || '',
   paymentsServiceApiKey: process.env.PAYMENTS_SERVICE_API_KEY || '',
+  paymentsWhitelist: (process.env.PAYMENTS_TELEGRAM_WHITELIST || '')
+    .split(',').map(item => item.toLowerCase().trim())
 }

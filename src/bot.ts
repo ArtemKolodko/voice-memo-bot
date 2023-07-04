@@ -198,34 +198,37 @@ Commands
       const priceEstimateUsd = getPriceEstimate(media)
       let userBalanceUsd = '0'
 
-      try {
-        const { one, usd } = await paymentsService.getUserBalance(userId)
-        userBalanceUsd = usd
-      } catch (e: any) {
-        console.log('Cannot get user balance:', e.message)
-        if(e.response && e.response.status === 404) {
-          await paymentsService.createUser(userId)
-        } else {
-          await client.sendMessage(chatId, { message: 'Failed to get user balance', replyTo: event.message })
+      if(config.paymentsWhitelist.includes(senderUsername.toLowerCase().trim())) {
+        console.log(`User ${senderUsername} is whitelisted, skip payment`)
+      } else {
+        try {
+          const { usd } = await paymentsService.getUserBalance(userId)
+          userBalanceUsd = usd
+        } catch (e: any) {
+          console.log('Cannot get user balance:', e.message)
+          if(e.response && e.response.status === 404) {
+            await paymentsService.createUser(userId)
+          } else {
+            await client.sendMessage(chatId, { message: 'Failed to get user balance', replyTo: event.message })
+            return
+          }
+        }
+        const balanceDelta = +userBalanceUsd - +priceEstimateUsd - 0.01
+        if(balanceDelta < 0) {
+          const user = await paymentsService.getUser(userId)
+          const deltaOneAmount = await paymentsService.convertUsdToOne(Math.abs(balanceDelta).toString())
+          const message = `Insufficient balance. Please send ${Math.ceil(deltaOneAmount / Math.pow(10, 18))} ONE to address ${user.userAddress} (network: Harmony).`
+          await client.sendMessage(chatId, { message, replyTo: event.message })
           return
         }
-      }
 
-      const balanceDelta = +userBalanceUsd - +priceEstimateUsd - 0.01
-      if(balanceDelta < 0) {
-        const user = await paymentsService.getUser(userId)
-        const deltaOneAmount = await paymentsService.convertUsdToOne(Math.abs(balanceDelta).toString())
-        const message = `Insufficient balance. Please send ${Math.ceil(deltaOneAmount / Math.pow(10, 18))} ONE to address ${user.userAddress} (network: Harmony).`
-        await client.sendMessage(chatId, { message, replyTo: event.message })
-        return
-      }
-
-      try {
-        const payment = await paymentsService.withdrawFunds(userId, priceEstimateUsd)
-        console.log('Payment:', payment)
-      } catch (e: any) {
-        console.log('Payment error:', e.message)
-        await client.sendMessage(chatId, { message: 'Failed to pay for the translation', replyTo: event.message })
+        try {
+          const payment = await paymentsService.withdrawFunds(userId, priceEstimateUsd)
+          console.log('Payment:', payment)
+        } catch (e: any) {
+          console.log('Payment error:', e.message)
+          await client.sendMessage(chatId, { message: 'Failed to pay for the translation', replyTo: event.message })
+        }
       }
 
       // await client.sendMessage(chatId, { message: 'Translation started', replyTo: event.message })
